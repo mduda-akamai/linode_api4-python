@@ -7,6 +7,7 @@ from linode_api4.objects import (
     LogsDestinationHistory,
     LogsStream,
     LogsStreamDestination,
+    LogsStreamHistory,
     MonitorDashboard,
     MonitorService,
 )
@@ -21,6 +22,7 @@ from linode_api4.objects.monitor import (
     LogsStreamType,
     TrafficPeakDestinationAuthentication,
     TrafficPeakLogsDestinationDetails,
+    VpnGatewayLogsStreamDetails,
 )
 
 
@@ -139,7 +141,6 @@ class MonitorTest(ClientBaseCase):
         self.assertEqual(data.alert.scope, ["entity"])
 
     def test_metric_definitions(self):
-
         metrics = self.client.monitor.metric_definitions(service_type="dbaas")
         self.assertEqual(
             metrics[0].available_aggregate_functions,
@@ -158,7 +159,6 @@ class MonitorTest(ClientBaseCase):
         )
 
     def test_create_token(self):
-
         with self.mock_post("/monitor/services/dbaas/token") as m:
             self.client.monitor.create_token(
                 service_type="dbaas", entity_ids=[189690, 188020]
@@ -906,3 +906,136 @@ class LkeAuditLogsStreamTest(ClientBaseCase):
             )
 
         self.assertNotIn("details", m.call_data)
+
+
+class VpnGatewayLogsStreamTest(ClientBaseCase):
+    def test_load_vpn_gateway_stream_details(self):
+        for stream_type in (
+            "vpngw_ipsec_logs",
+            "vpngw_bgp_logs",
+        ):
+            with self.subTest(stream_type=stream_type):
+                response = {
+                    "id": 5,
+                    "type": stream_type,
+                    "details": {
+                        "vpn_gateway_ids": [50, 60],
+                    },
+                }
+
+                stream = LogsStream(self.client, 5, response)
+
+                self.assertIsInstance(
+                    stream.details, VpnGatewayLogsStreamDetails
+                )
+                self.assertEqual(stream.details.vpn_gateway_ids, [50, 60])
+
+    def test_create_vpn_gateway_stream(self):
+        for stream_type in (
+            LogsStreamType.vpngw_ipsec_logs,
+            LogsStreamType.vpngw_bgp_logs,
+        ):
+            with self.subTest(stream_type=stream_type):
+                response = {
+                    "id": 5,
+                    "label": "VPN stream",
+                    "type": stream_type.value,
+                    "status": "active",
+                    "details": {
+                        "vpn_gateway_ids": [50, 60],
+                    },
+                }
+
+                with self.mock_post(response) as mock:
+                    stream = self.client.monitor.stream_create(
+                        destinations=[1],
+                        label="VPN stream",
+                        type=stream_type,
+                        status="active",
+                        details=VpnGatewayLogsStreamDetails(
+                            vpn_gateway_ids=[50, 60],
+                        ),
+                    )
+
+                self.assertEqual(mock.call_url, "/monitor/streams")
+                self.assertEqual(
+                    mock.call_data,
+                    {
+                        "label": "VPN stream",
+                        "type": stream_type.value,
+                        "status": "active",
+                        "destinations": [1],
+                        "details": {
+                            "vpn_gateway_ids": [50, 60],
+                        },
+                    },
+                )
+                self.assertIsInstance(
+                    stream.details, VpnGatewayLogsStreamDetails
+                )
+                self.assertEqual(stream.details.vpn_gateway_ids, [50, 60])
+
+    def test_update_vpn_gateway_stream(self):
+        for stream_type in (
+            "vpngw_ipsec_logs",
+            "vpngw_bgp_logs",
+        ):
+            with self.subTest(stream_type=stream_type):
+                stream = LogsStream(
+                    self.client,
+                    5,
+                    {
+                        "id": 5,
+                        "label": "VPN stream",
+                        "type": stream_type,
+                        "status": "active",
+                        "details": {
+                            "vpn_gateway_ids": [50, 60],
+                        },
+                    },
+                )
+
+                stream.details = VpnGatewayLogsStreamDetails(
+                    vpn_gateway_ids=[50, 70],
+                )
+
+                with self.mock_put({}) as mock:
+                    saved = stream.save()
+
+                self.assertTrue(saved)
+                self.assertEqual(mock.call_url, "/monitor/streams/5")
+                self.assertEqual(
+                    mock.call_data,
+                    {
+                        "label": "VPN stream",
+                        "status": "active",
+                        "details": {
+                            "vpn_gateway_ids": [50, 70],
+                        },
+                    },
+                )
+
+    def test_load_vpn_gateway_stream_history_details(self):
+        for stream_type in (
+            "vpngw_ipsec_logs",
+            "vpngw_bgp_logs",
+        ):
+            with self.subTest(stream_type=stream_type):
+                snapshot = LogsStreamHistory(
+                    self.client,
+                    5,
+                    {
+                        "id": 5,
+                        "type": stream_type,
+                        "version": 1,
+                        "details": {
+                            "vpn_gateway_ids": [50, 60],
+                        },
+                    },
+                )
+
+                self.assertEqual(snapshot.version, 1)
+                self.assertIsInstance(
+                    snapshot.details, VpnGatewayLogsStreamDetails
+                )
+                self.assertEqual(snapshot.details.vpn_gateway_ids, [50, 60])

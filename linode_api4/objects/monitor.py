@@ -43,6 +43,7 @@ __all__ = [
     "LogsStreamDetails",
     "LogsStreamDestination",
     "LogsStreamQuota",
+    "VpnGatewayLogsStreamDetails",
 ]
 
 
@@ -793,6 +794,8 @@ class LogsStreamStatus(StrEnum):
 class LogsStreamType(StrEnum):
     audit_logs = "audit_logs"
     lke_audit_logs = "lke_audit_logs"
+    vpngw_ipsec_logs = "vpngw_ipsec_logs"
+    vpngw_bgp_logs = "vpngw_bgp_logs"
 
 
 @dataclass
@@ -820,6 +823,28 @@ class LogsStreamDetails(JSONObject):
 
     cluster_ids: Optional[List[int]] = None
     is_auto_add_all_clusters_enabled: bool = False
+
+    @classmethod
+    def from_json(
+        cls, json: Dict[str, Any]
+    ) -> Optional[Union["LogsStreamDetails", "VpnGatewayLogsStreamDetails"]]:
+        if json is not None and "vpn_gateway_ids" in json:
+            return VpnGatewayLogsStreamDetails.from_json(json)
+
+        return super().from_json(json)
+
+
+@dataclass
+class VpnGatewayLogsStreamDetails(JSONObject):
+    """
+    Details for ``vpngw_ipsec_logs`` and ``vpngw_bgp_logs`` streams.
+
+    :param vpn_gateway_ids: A non-empty list of unique, positive VPN Gateway IDs.
+        Updating this list replaces all previously selected gateway IDs.
+    :type vpn_gateway_ids: List[int]
+    """
+
+    vpn_gateway_ids: Optional[List[int]] = None
 
 
 @dataclass

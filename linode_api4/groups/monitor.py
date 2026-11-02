@@ -24,6 +24,7 @@ from linode_api4.objects.monitor import (
     LogsStreamDetails,
     LogsStreamQuota,
     TrafficPeakLogsDestinationDetails,
+    VpnGatewayLogsStreamDetails,
 )
 
 __all__ = [
@@ -579,7 +580,9 @@ class MonitorGroup(Group):
         label: str,
         type: Union[LogsStreamType, str],
         status: Optional[Union[LogsStreamStatus, str]] = None,
-        details: Optional[LogsStreamDetails] = None,
+        details: Optional[
+            Union[LogsStreamDetails, VpnGatewayLogsStreamDetails]
+        ] = None,
     ) -> LogsStream:
         """
         Creates a new :any:`LogsStream` for logs on this account. For example::
@@ -605,6 +608,16 @@ class MonitorGroup(Group):
                )
            )
 
+           # VPN Gateway IPsec logs for selected gateways
+           vpn_stream = client.monitor.stream_create(
+               destinations=[1234],
+               label="VPN Gateway IPsec stream",
+               type=LogsStreamType.vpngw_ipsec_logs,
+               details=VpnGatewayLogsStreamDetails(
+                   vpn_gateway_ids=[50, 60],
+               )
+           )
+
         API Documentation: https://techdocs.akamai.com/linode-api/reference/post-stream
 
         :param destinations: The unique identifier for the sync point that will receive logs data.
@@ -613,15 +626,17 @@ class MonitorGroup(Group):
         :type destinations: list[int]
         :param label: The name of the stream. This is used for display purposes in Akamai Cloud Manager.
         :type label: str
-        :param type: The type of stream — ``audit_logs`` for Linode control plane logs,
-                     or ``lke_audit_logs`` for LKE enterprise cluster audit logs.
+        :param type: The stream type: ``audit_logs``, ``lke_audit_logs``,
+                ``vpngw_ipsec_logs``, or ``vpngw_bgp_logs``.
         :type type: str or LogsStreamType
         :param status: (Optional) The availability status of the stream. Possible values are: ``active``, ``inactive``.
                         Defaults to ``active``.
         :type status: str
-        :param details: (Optional) Additional stream details. Only applicable for
-                        ``lke_audit_logs`` streams. Omit for ``audit_logs`` streams.
-        :type details: LogsStreamDetails
+        :param details: Stream details. Required for LKE and VPN Gateway streams.
+                        Use LogsStreamDetails for LKE and
+                        VpnGatewayLogsStreamDetails for VPN Gateway.
+                        Omit for ``audit_logs`` streams.
+        :type details: LogsStreamDetails or VpnGatewayLogsStreamDetails
 
         :returns: The newly created logs stream.
         :rtype: LogsStream
